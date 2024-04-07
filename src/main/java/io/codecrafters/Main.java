@@ -39,11 +39,18 @@ public class Main {
                 return;
             }
 
-            switch (httpRequest.method()) {
+            switch (httpRequest.getMethod()) {
                 case HttpRequest.METHOD_GET -> {
-                    var path = httpRequest.path();
+                    var path = httpRequest.getPath();
                     if (path.equals("/")) {
                         httpResponse.setStatus(HttpStatus.OK);
+                    } else if (path.equals("/user-agent")) {
+                        httpResponse.setStatus(HttpStatus.OK);
+                        if (httpRequest.containsHeader("user-agent")) {
+                            var body = httpRequest.getHeader("user-agent");
+                            httpResponse.setHeader("content-length", body.length());
+                            httpResponse.setBody(body);
+                        }
                     } else if (path.startsWith("/echo")) {
                         httpResponse.setStatus(HttpStatus.OK);
                         if (path.length() > 5) {
@@ -67,11 +74,26 @@ public class Main {
             return null;
         }
 
-        var requestLine = lines.getFirst().split("\\s+");
+        var iterator = lines.iterator();
+        var requestLine = iterator.next().split("\\s+");
         if (requestLine.length != 3) {
             return null;
         }
-        return new HttpRequest(requestLine[0], requestLine[1], requestLine[2]);
+
+        var httpRequest = new HttpRequest(requestLine[0], requestLine[1], requestLine[2]);
+        while (iterator.hasNext()) {
+            var line = iterator.next();
+            var index = line.indexOf(':');
+            if (index == -1) {
+                continue;
+            }
+
+            var key = line.substring(0, index);
+            var value = line.substring(index + 1);
+
+            httpRequest.setHeader(key.strip(), value.strip());
+        }
+        return httpRequest;
     }
 
     private static List<String> readLinesCRLF(InputStream inputStream) throws IOException {
