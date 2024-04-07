@@ -6,28 +6,37 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
 public class Main {
     public static void main(String[] args) {
-        var port = 4221;
+        var directoryPath = Paths.get("./");
+        for (var i = 0; i < args.length; i++) {
+            if (args[i].equals("--directory") && (i + 1) < args.length) {
+                directoryPath = Paths.get(args[i + 1]);
+                i++;
+            }
+        }
 
-        try (var serverSocket = new ServerSocket(port);
-             var executorService = Executors.newWorkStealingPool(4)) {
+        try (var serverSocket = new ServerSocket(4221);
+             var executorService = Executors.newWorkStealingPool()) {
 
             serverSocket.setReuseAddress(true);
 
             while (true) {
-                executorService.submit(new ConnectionHandler(serverSocket.accept()));
+                executorService.submit(new ConnectionHandler(directoryPath, serverSocket.accept()));
             }
         } catch (IOException ioException) {
             System.out.println("IOException: " + ioException.getMessage());
         }
     }
 
-    private static void handleRequest(Socket socket) throws IOException {
+    private static void handleRequest(Path directoryPath, Socket socket) throws IOException {
         var inputStream = socket.getInputStream();
         var outputStream = socket.getOutputStream();
 
@@ -53,6 +62,20 @@ public class Main {
                         var body = httpRequest.getHeader("user-agent");
                         httpResponse.setHeader("content-length", body.length());
                         httpResponse.setBody(body);
+                    }
+                } else if (path.startsWith("/files/")) {
+                    var filename = path.substring(7);
+                    var filepath = directoryPath.resolve(filename);
+
+                    if (Files.exists(filepath)) {
+                        httpResponse.setStatus(HttpStatus.OK);
+                        httpResponse.setHeader("content-type", "application/octet-stream");
+
+                        var body = Files.readString(filepath);
+                        httpResponse.setHeader("content-length", body.length());
+                        httpResponse.setBody(body);
+                    } else {
+                        httpResponse.setStatus(HttpStatus.NOT_FOUND);
                     }
                 } else if (path.startsWith("/echo")) {
                     httpResponse.setStatus(HttpStatus.OK);
@@ -151,11 +174,11 @@ public class Main {
         outputStream.flush();
     }
 
-    private record ConnectionHandler(Socket socket) implements Runnable {
+    private record ConnectionHandler(Path directoryPath, Socket socket) implements Runnable {
         @Override
         public void run() {
             try (socket) {
-                handleRequest(socket);
+                handleRequest(directoryPath, socket);
             } catch (IOException ioException) {
                 System.out.println("IOException: " + ioException.getMessage());
             }
