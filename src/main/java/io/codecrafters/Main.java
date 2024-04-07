@@ -52,45 +52,66 @@ public class Main {
         }
 
         switch (httpRequest.getMethod()) {
-            case HttpRequest.METHOD_GET -> {
-                var path = httpRequest.getPath();
-                if (path.equals("/")) {
-                    httpResponse.setStatus(HttpStatus.OK);
-                } else if (path.equals("/user-agent")) {
-                    httpResponse.setStatus(HttpStatus.OK);
-                    if (httpRequest.containsHeader("user-agent")) {
-                        var body = httpRequest.getHeader("user-agent");
-                        httpResponse.setHeader("content-length", body.length());
-                        httpResponse.setBody(body);
-                    }
-                } else if (path.startsWith("/files/")) {
-                    var filename = path.substring(7);
-                    var filepath = directoryPath.resolve(filename);
-
-                    if (Files.exists(filepath)) {
-                        httpResponse.setStatus(HttpStatus.OK);
-                        httpResponse.setHeader("content-type", "application/octet-stream");
-
-                        var body = Files.readString(filepath);
-                        httpResponse.setHeader("content-length", body.length());
-                        httpResponse.setBody(body);
-                    } else {
-                        httpResponse.setStatus(HttpStatus.NOT_FOUND);
-                    }
-                } else if (path.startsWith("/echo")) {
-                    httpResponse.setStatus(HttpStatus.OK);
-                    if (path.length() > 5) {
-                        var body = path.substring(6);
-                        httpResponse.setHeader("content-length", body.length());
-                        httpResponse.setBody(body);
-                    }
-                } else {
-                    httpResponse.setStatus(HttpStatus.NOT_FOUND);
-                }
-            }
+            case HttpRequest.METHOD_GET -> handleRequestGet(directoryPath, httpRequest, httpResponse);
+            case HttpRequest.METHOD_POST -> handleRequestPost(directoryPath, httpRequest, httpResponse);
         }
 
         sendResponse(outputStream, httpResponse);
+    }
+
+    private static void handleRequestGet(Path directoryPath, HttpRequest httpRequest, HttpResponse httpResponse)
+            throws IOException {
+
+        var path = httpRequest.getPath();
+
+        if (path.equals("/")) {
+            httpResponse.setStatus(HttpStatus.OK);
+        } else if (path.equals("/user-agent")) {
+            httpResponse.setStatus(HttpStatus.OK);
+            if (httpRequest.containsHeader("user-agent")) {
+                var body = httpRequest.getHeader("user-agent");
+                httpResponse.setHeader("content-length", body.length());
+                httpResponse.setBody(body);
+            }
+        } else if (path.startsWith("/files/")) {
+            var filename = path.substring(7);
+            var filepath = directoryPath.resolve(filename);
+
+            if (Files.exists(filepath)) {
+                httpResponse.setStatus(HttpStatus.OK);
+                httpResponse.setHeader("content-type", "application/octet-stream");
+
+                var body = Files.readString(filepath);
+                httpResponse.setHeader("content-length", body.length());
+                httpResponse.setBody(body);
+            } else {
+                httpResponse.setStatus(HttpStatus.NOT_FOUND);
+            }
+        } else if (path.startsWith("/echo")) {
+            httpResponse.setStatus(HttpStatus.OK);
+            if (path.length() > 5) {
+                var body = path.substring(6);
+                httpResponse.setHeader("content-length", body.length());
+                httpResponse.setBody(body);
+            }
+        } else {
+            httpResponse.setStatus(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    private static void handleRequestPost(Path directoryPath, HttpRequest httpRequest, HttpResponse httpResponse)
+            throws IOException {
+
+        var path = httpRequest.getPath();
+
+        if (path.startsWith("/files/")) {
+            var filename = path.substring(7);
+            var filepath = directoryPath.resolve(filename);
+            Files.write(filepath, httpRequest.getBody());
+            httpResponse.setStatus(HttpStatus.CREATED);
+        } else {
+            httpResponse.setStatus(HttpStatus.NOT_FOUND);
+        }
     }
 
     private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
@@ -118,6 +139,13 @@ public class Main {
 
             httpRequest.setHeader(key.strip(), value.strip());
         }
+
+        if (httpRequest.containsHeader("content-length")) {
+            var body = new byte[Integer.valueOf(httpRequest.getHeader("content-length"))];
+            inputStream.read(body, 0, body.length);
+            httpRequest.setBody(body);
+        }
+
         return httpRequest;
     }
 

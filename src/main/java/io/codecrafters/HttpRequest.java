@@ -6,6 +6,7 @@ import java.util.Map;
 
 public class HttpRequest {
     public static final String METHOD_GET = "GET";
+    public static final String METHOD_POST = "POST";
 
     public HttpRequest(String method, String path, String httpVersion) {
         this.method = method;
@@ -15,6 +16,10 @@ public class HttpRequest {
 
     public boolean containsHeader(String key) {
         return headers.containsKey(key.toLowerCase());
+    }
+
+    public byte[] getBody() {
+        return body;
     }
 
     public String getHeader(String key) {
@@ -37,10 +42,15 @@ public class HttpRequest {
         return path;
     }
 
+    public void setBody(byte[] bytes) {
+        this.body = bytes;
+    }
+
     public void setHeader(String key, String value) {
         headers.put(key.toLowerCase(), value);
     }
 
+    private byte[] body;
     private final String httpVersion;
     private final String method;
     private final String path;
