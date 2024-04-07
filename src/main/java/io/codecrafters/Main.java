@@ -8,16 +8,19 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class Main {
     public static void main(String[] args) {
         var port = 4221;
 
-        try (var serverSocket = new ServerSocket(port)) {
+        try (var serverSocket = new ServerSocket(port);
+             var executorService = Executors.newWorkStealingPool(4)) {
+
             serverSocket.setReuseAddress(true);
 
-            try (var clientSocket = serverSocket.accept()) {
-                handleRequest(clientSocket);
+            while (true) {
+                executorService.submit(new ConnectionHandler(serverSocket.accept()));
             }
         } catch (IOException ioException) {
             System.out.println("IOException: " + ioException.getMessage());
@@ -25,47 +28,46 @@ public class Main {
     }
 
     private static void handleRequest(Socket socket) throws IOException {
-        try (var inputStream = socket.getInputStream();
-             var outputStream = socket.getOutputStream()) {
+        var inputStream = socket.getInputStream();
+        var outputStream = socket.getOutputStream();
 
-            var httpRequest = parseHttpRequest(inputStream);
-            var httpResponse = new HttpResponse(HttpStatus.BAD_REQUEST);
+        var httpRequest = parseHttpRequest(inputStream);
+        var httpResponse = new HttpResponse(HttpStatus.BAD_REQUEST);
 
-            httpResponse.setHeader("content-type", "text/plain");
-            httpResponse.setHeader("content-length", 0);
+        httpResponse.setHeader("content-type", "text/plain");
+        httpResponse.setHeader("content-length", 0);
 
-            if (httpRequest == null) {
-                sendResponse(outputStream, httpResponse);
-                return;
-            }
+        if (httpRequest == null) {
+            sendResponse(outputStream, httpResponse);
+            return;
+        }
 
-            switch (httpRequest.getMethod()) {
-                case HttpRequest.METHOD_GET -> {
-                    var path = httpRequest.getPath();
-                    if (path.equals("/")) {
-                        httpResponse.setStatus(HttpStatus.OK);
-                    } else if (path.equals("/user-agent")) {
-                        httpResponse.setStatus(HttpStatus.OK);
-                        if (httpRequest.containsHeader("user-agent")) {
-                            var body = httpRequest.getHeader("user-agent");
-                            httpResponse.setHeader("content-length", body.length());
-                            httpResponse.setBody(body);
-                        }
-                    } else if (path.startsWith("/echo")) {
-                        httpResponse.setStatus(HttpStatus.OK);
-                        if (path.length() > 5) {
-                            var body = path.substring(6);
-                            httpResponse.setHeader("content-length", body.length());
-                            httpResponse.setBody(body);
-                        }
-                    } else {
-                        httpResponse.setStatus(HttpStatus.NOT_FOUND);
+        switch (httpRequest.getMethod()) {
+            case HttpRequest.METHOD_GET -> {
+                var path = httpRequest.getPath();
+                if (path.equals("/")) {
+                    httpResponse.setStatus(HttpStatus.OK);
+                } else if (path.equals("/user-agent")) {
+                    httpResponse.setStatus(HttpStatus.OK);
+                    if (httpRequest.containsHeader("user-agent")) {
+                        var body = httpRequest.getHeader("user-agent");
+                        httpResponse.setHeader("content-length", body.length());
+                        httpResponse.setBody(body);
                     }
+                } else if (path.startsWith("/echo")) {
+                    httpResponse.setStatus(HttpStatus.OK);
+                    if (path.length() > 5) {
+                        var body = path.substring(6);
+                        httpResponse.setHeader("content-length", body.length());
+                        httpResponse.setBody(body);
+                    }
+                } else {
+                    httpResponse.setStatus(HttpStatus.NOT_FOUND);
                 }
             }
-
-            sendResponse(outputStream, httpResponse);
         }
+
+        sendResponse(outputStream, httpResponse);
     }
 
     private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
@@ -147,6 +149,17 @@ public class Main {
 
         outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8));
         outputStream.flush();
+    }
+
+    private record ConnectionHandler(Socket socket) implements Runnable {
+        @Override
+        public void run() {
+            try (socket) {
+                handleRequest(socket);
+            } catch (IOException ioException) {
+                System.out.println("IOException: " + ioException.getMessage());
+            }
+        }
     }
 
     private static final String HTTP_VERSION = "HTTP/1.1";
