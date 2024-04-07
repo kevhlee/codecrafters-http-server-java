@@ -31,15 +31,28 @@ public class Main {
             var httpRequest = parseHttpRequest(inputStream);
             var httpResponse = new HttpResponse(HttpStatus.BAD_REQUEST);
 
-            if (httpRequest != null) {
-                switch (httpRequest.method()) {
-                    case HttpRequest.METHOD_GET -> {
-                        var path = httpRequest.path();
-                        if (path.equals("/")) {
-                            httpResponse.setStatus(HttpStatus.OK);
-                        } else {
-                            httpResponse.setStatus(HttpStatus.NOT_FOUND);
+            httpResponse.setHeader("content-type", "text/plain");
+            httpResponse.setHeader("content-length", 0);
+
+            if (httpRequest == null) {
+                sendResponse(outputStream, httpResponse);
+                return;
+            }
+
+            switch (httpRequest.method()) {
+                case HttpRequest.METHOD_GET -> {
+                    var path = httpRequest.path();
+                    if (path.equals("/")) {
+                        httpResponse.setStatus(HttpStatus.OK);
+                    } else if (path.startsWith("/echo")) {
+                        httpResponse.setStatus(HttpStatus.OK);
+                        if (path.length() > 5) {
+                            var body = path.substring(6);
+                            httpResponse.setHeader("content-length", body.length());
+                            httpResponse.setBody(body);
                         }
+                    } else {
+                        httpResponse.setStatus(HttpStatus.NOT_FOUND);
                     }
                 }
             }
@@ -96,7 +109,19 @@ public class Main {
         sb.append(" ");
         sb.append(httpResponse.getStatus().getText());
         sb.append(NEWLINE_CRLF);
+
+        for (var header : httpResponse.getHeaders().entrySet()) {
+            sb.append(header.getKey());
+            sb.append(": ");
+            sb.append(header.getValue());
+            sb.append(NEWLINE_CRLF);
+        }
+
         sb.append(NEWLINE_CRLF);
+
+        if (httpResponse.getBody() != null) {
+            sb.append(httpResponse.getBody());
+        }
 
         outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8));
         outputStream.flush();
