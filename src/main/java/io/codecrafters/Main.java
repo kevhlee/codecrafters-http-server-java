@@ -33,16 +33,16 @@ public class Main {
 			if (index != -1) {
 				String body = requestPath.substring(index + 6);
 				httpContext.setResponseBody(body);
-				httpContext.setResponseHeader("Content-Length", body.length());
-				httpContext.setResponseHeader("Content-Type", "text/plain");
+				httpContext.setResponseHeader(HttpHeaders.CONTENT_LENGTH, body.length());
+				httpContext.setResponseHeader(HttpHeaders.CONTENT_TYPE, "text/plain");
 			}
 		});
 
 		httpServer.setHandler("/user-agent", (httpContext) -> {
 			String body = httpContext.getRequestHeader("User-Agent");
 			httpContext.setResponseBody(body);
-			httpContext.setResponseHeader("Content-Length", body.length());
-			httpContext.setResponseHeader("Content-Type", "text/plain");
+			httpContext.setResponseHeader(HttpHeaders.CONTENT_LENGTH, body.length());
+			httpContext.setResponseHeader(HttpHeaders.CONTENT_TYPE, "text/plain");
 		});
 
 		httpServer.setHandler("/files/**", new HttpHandler() {
@@ -72,8 +72,8 @@ public class Main {
 				try {
 					String body = Files.readString(file.toPath());
 					httpContext.setResponseBody(body);
-					httpContext.setResponseHeader("Content-Length", body.length());
-					httpContext.setResponseHeader("Content-Type", "application/octet-stream");
+					httpContext.setResponseHeader(HttpHeaders.CONTENT_LENGTH, body.length());
+					httpContext.setResponseHeader(HttpHeaders.CONTENT_TYPE, "application/octet-stream");
 					httpContext.setResponseStatus(HttpStatus.OK);
 				} catch (IOException ioException) {
 					httpContext.setResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR);

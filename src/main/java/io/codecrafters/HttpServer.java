@@ -71,8 +71,8 @@ public class HttpServer {
 
 	private HttpResponse createHttpResponse(HttpStatus httpStatus) {
 		HttpResponse httpResponse = new HttpResponse(httpStatus);
-		httpResponse.setHeader("Connection", "close");
-		httpResponse.setHeader("Content-Length", "0");
+		httpResponse.setHeader(HttpHeaders.CONNECTION, "close");
+		httpResponse.setHeader(HttpHeaders.CONTENT_LENGTH, "0");
 		return httpResponse;
 	}
 
