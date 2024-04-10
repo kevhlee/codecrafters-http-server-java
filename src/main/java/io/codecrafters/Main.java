@@ -1,218 +1,96 @@
 package io.codecrafters;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Executors;
 
+/**
+ * @author Kevin Lee
+ */
 public class Main {
-    public static void main(String[] args) {
-        var directoryPath = Paths.get("./");
-        for (var i = 0; i < args.length; i++) {
-            if (args[i].equals("--directory") && (i + 1) < args.length) {
-                directoryPath = Paths.get(args[i + 1]);
-                i++;
-            }
-        }
+	public static void main(String[] args) throws IOException {
+		Path baseDirPath = Path.of("./");
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].equals("--directory") && i < args.length - 1) {
+				baseDirPath = Path.of(args[i + 1]);
+				break;
+			}
+		}
 
-        try (var serverSocket = new ServerSocket(4221);
-             var executorService = Executors.newWorkStealingPool()) {
+		HttpServer httpServer = new HttpServer(baseDirPath, 4221)
+			.setExecutorService(Executors::newVirtualThreadPerTaskExecutor)
+			.setTimeout(60000);
 
-            serverSocket.setReuseAddress(true);
+		httpServer.setHandler("/", (httpContext) -> {
+			httpContext.setResponseStatus(HttpStatus.OK);
+		});
 
-            while (true) {
-                executorService.submit(new ConnectionHandler(directoryPath, serverSocket.accept()));
-            }
-        } catch (IOException ioException) {
-            System.out.println("IOException: " + ioException.getMessage());
-        }
-    }
+		httpServer.setHandler("/echo/**", (httpContext) -> {
+			String requestPath = httpContext.getRequestPath();
+			int index = requestPath.indexOf("/echo/");
+			if (index != -1) {
+				String body = requestPath.substring(index + 6);
+				httpContext.setResponseBody(body);
+				httpContext.setResponseHeader("Content-Length", body.length());
+				httpContext.setResponseHeader("Content-Type", "text/plain");
+			}
+		});
 
-    private static void handleRequest(Path directoryPath, Socket socket) throws IOException {
-        var inputStream = socket.getInputStream();
-        var outputStream = socket.getOutputStream();
+		httpServer.setHandler("/user-agent", (httpContext) -> {
+			String body = httpContext.getRequestHeader("User-Agent");
+			httpContext.setResponseBody(body);
+			httpContext.setResponseHeader("Content-Length", body.length());
+			httpContext.setResponseHeader("Content-Type", "text/plain");
+		});
 
-        var httpRequest = parseHttpRequest(inputStream);
-        var httpResponse = new HttpResponse(HttpStatus.BAD_REQUEST);
+		httpServer.setHandler("/files/**", new HttpHandler() {
+			@Override
+			public void handle(HttpContext httpContext) {
+				String requestPath = httpContext.getRequestPath();
+				int index = requestPath.indexOf("files/");
+				if (index == -1) {
+					httpContext.setResponseStatus(HttpStatus.NOT_FOUND);
+					return;
+				}
 
-        httpResponse.setHeader("content-type", "text/plain");
-        httpResponse.setHeader("content-length", 0);
+				String fileName = requestPath.substring(index + 6);
+				switch (httpContext.getRequestMethod()) {
+					case HttpRequest.METHOD_GET -> handleGet(httpContext, fileName);
+					case HttpRequest.METHOD_POST -> handlePost(httpContext, fileName);
+				}
+			}
 
-        if (httpRequest == null) {
-            sendResponse(outputStream, httpResponse);
-            return;
-        }
+			private void handleGet(HttpContext httpContext, String fileName) {
+				File file = httpContext.getFile(fileName);
+				if (!file.exists()) {
+					httpContext.setResponseStatus(HttpStatus.NOT_FOUND);
+					return;
+				}
 
-        switch (httpRequest.getMethod()) {
-            case HttpRequest.METHOD_GET -> handleRequestGet(directoryPath, httpRequest, httpResponse);
-            case HttpRequest.METHOD_POST -> handleRequestPost(directoryPath, httpRequest, httpResponse);
-        }
+				try {
+					String body = Files.readString(file.toPath());
+					httpContext.setResponseBody(body);
+					httpContext.setResponseHeader("Content-Length", body.length());
+					httpContext.setResponseHeader("Content-Type", "application/octet-stream");
+					httpContext.setResponseStatus(HttpStatus.OK);
+				} catch (IOException ioException) {
+					httpContext.setResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+				}
+			}
 
-        sendResponse(outputStream, httpResponse);
-    }
+			private void handlePost(HttpContext httpContext, String fileName) {
+				String body = httpContext.getRequestBody();
+				try {
+					httpContext.writeFile(fileName, body);
+					httpContext.setResponseStatus(HttpStatus.CREATED);
+				} catch (IOException ioException) {
+					httpContext.setResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+				}
+			}
+		});
 
-    private static void handleRequestGet(Path directoryPath, HttpRequest httpRequest, HttpResponse httpResponse)
-            throws IOException {
-
-        var path = httpRequest.getPath();
-
-        if (path.equals("/")) {
-            httpResponse.setStatus(HttpStatus.OK);
-        } else if (path.equals("/user-agent")) {
-            httpResponse.setStatus(HttpStatus.OK);
-            if (httpRequest.containsHeader("user-agent")) {
-                var body = httpRequest.getHeader("user-agent");
-                httpResponse.setHeader("content-length", body.length());
-                httpResponse.setBody(body);
-            }
-        } else if (path.startsWith("/files/")) {
-            var filename = path.substring(7);
-            var filepath = directoryPath.resolve(filename);
-
-            if (Files.exists(filepath)) {
-                httpResponse.setStatus(HttpStatus.OK);
-                httpResponse.setHeader("content-type", "application/octet-stream");
-
-                var body = Files.readString(filepath);
-                httpResponse.setHeader("content-length", body.length());
-                httpResponse.setBody(body);
-            } else {
-                httpResponse.setStatus(HttpStatus.NOT_FOUND);
-            }
-        } else if (path.startsWith("/echo")) {
-            httpResponse.setStatus(HttpStatus.OK);
-            if (path.length() > 5) {
-                var body = path.substring(6);
-                httpResponse.setHeader("content-length", body.length());
-                httpResponse.setBody(body);
-            }
-        } else {
-            httpResponse.setStatus(HttpStatus.NOT_FOUND);
-        }
-    }
-
-    private static void handleRequestPost(Path directoryPath, HttpRequest httpRequest, HttpResponse httpResponse)
-            throws IOException {
-
-        var path = httpRequest.getPath();
-
-        if (path.startsWith("/files/")) {
-            var filename = path.substring(7);
-            var filepath = directoryPath.resolve(filename);
-            Files.write(filepath, httpRequest.getBody());
-            httpResponse.setStatus(HttpStatus.CREATED);
-        } else {
-            httpResponse.setStatus(HttpStatus.NOT_FOUND);
-        }
-    }
-
-    private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
-        var lines = readLinesCRLF(inputStream);
-        if (lines.isEmpty()) {
-            return null;
-        }
-
-        var iterator = lines.iterator();
-        var requestLine = iterator.next().split("\\s+");
-        if (requestLine.length != 3) {
-            return null;
-        }
-
-        var httpRequest = new HttpRequest(requestLine[0], requestLine[1], requestLine[2]);
-        while (iterator.hasNext()) {
-            var line = iterator.next();
-            var index = line.indexOf(':');
-            if (index == -1) {
-                continue;
-            }
-
-            var key = line.substring(0, index);
-            var value = line.substring(index + 1);
-
-            httpRequest.setHeader(key.strip(), value.strip());
-        }
-
-        if (httpRequest.containsHeader("content-length")) {
-            var body = new byte[Integer.valueOf(httpRequest.getHeader("content-length"))];
-            inputStream.read(body, 0, body.length);
-            httpRequest.setBody(body);
-        }
-
-        return httpRequest;
-    }
-
-    private static List<String> readLinesCRLF(InputStream inputStream) throws IOException {
-        var sb = new StringBuilder();
-        var lines = new ArrayList<String>();
-
-        for (int b = inputStream.read(); b >= 0; b = inputStream.read()) {
-            if (b == '\r') {
-                b = inputStream.read();
-                if (b == '\n') {
-                    if (sb.length() == 0) {
-                        break;
-                    }
-                    lines.add(sb.toString());
-                    sb.setLength(0);
-                } else {
-                    // TODO: Is this a valid request at this point?
-                    sb.append('\r');
-                    sb.append((char) b);
-                }
-            } else {
-                sb.append((char) b);
-            }
-        }
-
-        return lines;
-    }
-
-    private static void sendResponse(OutputStream outputStream, HttpResponse httpResponse) throws IOException {
-        var sb = new StringBuilder();
-
-        sb.append(HTTP_VERSION);
-        sb.append(" ");
-        sb.append(httpResponse.getStatus().getCode());
-        sb.append(" ");
-        sb.append(httpResponse.getStatus().getText());
-        sb.append(NEWLINE_CRLF);
-
-        for (var header : httpResponse.getHeaders().entrySet()) {
-            sb.append(header.getKey());
-            sb.append(": ");
-            sb.append(header.getValue());
-            sb.append(NEWLINE_CRLF);
-        }
-
-        sb.append(NEWLINE_CRLF);
-
-        if (httpResponse.getBody() != null) {
-            sb.append(httpResponse.getBody());
-        }
-
-        outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8));
-        outputStream.flush();
-    }
-
-    private record ConnectionHandler(Path directoryPath, Socket socket) implements Runnable {
-        @Override
-        public void run() {
-            try (socket) {
-                handleRequest(directoryPath, socket);
-            } catch (IOException ioException) {
-                System.out.println("IOException: " + ioException.getMessage());
-            }
-        }
-    }
-
-    private static final String HTTP_VERSION = "HTTP/1.1";
-    private static final String NEWLINE_CRLF = "\r\n";
+		httpServer.start();
+	}
 }

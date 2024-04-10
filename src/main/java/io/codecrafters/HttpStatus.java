@@ -1,24 +1,42 @@
 package io.codecrafters;
 
+/**
+ * @author Kevin Lee
+ */
 public enum HttpStatus {
-    OK(200, "OK"),
-    CREATED(201, "Created"),
-    BAD_REQUEST(400, "Bad Request"),
-    NOT_FOUND(404, "Not Found");
+	//
+	// 2xx - Success
+	//
 
-    HttpStatus(int code, String text) {
-        this.code = code;
-        this.text = text;
-    }
+	OK(200, "OK"),
+	CREATED(201, "Created"),
 
-    public int getCode() {
-        return code;
-    }
+	//
+	// 4xx - Client error
+	//
 
-    public String getText() {
-        return text;
-    }
+	BAD_REQUEST(400, "Bad Request"),
+	NOT_FOUND(404, "Not Found"),
 
-    private final int code;
-    private final String text;
+	//
+	// 5xx - Server error
+	//
+
+	INTERNAL_SERVER_ERROR(500, "Internal Server Error");
+
+	HttpStatus(int code, String text) {
+		this.code = code;
+		this.text = text;
+	}
+
+	public int getCode() {
+		return code;
+	}
+
+	public String getText() {
+		return text;
+	}
+
+	private final int code;
+	private final String text;
 }

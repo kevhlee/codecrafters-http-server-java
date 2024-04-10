@@ -1,58 +1,56 @@
 package io.codecrafters;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * @author Kevin Lee
+ */
 public class HttpRequest {
-    public static final String METHOD_GET = "GET";
-    public static final String METHOD_POST = "POST";
+	public static final String METHOD_GET = "GET";
+	public static final String METHOD_POST = "POST";
 
-    public HttpRequest(String method, String path, String httpVersion) {
-        this.method = method;
-        this.path = path;
-        this.httpVersion = httpVersion;
-    }
+	public HttpRequest(String method, String path, String httpVersion) {
+		this.httpVersion = httpVersion;
+		this.method = method;
+		this.path = path;
+	}
 
-    public boolean containsHeader(String key) {
-        return headers.containsKey(key.toLowerCase());
-    }
+	public String getBody() {
+		return body;
+	}
 
-    public byte[] getBody() {
-        return body;
-    }
+	public String getHeader(String key) {
+		return headers.get(key.toLowerCase());
+	}
 
-    public String getHeader(String key) {
-        return headers.get(key.toLowerCase());
-    }
+	public String getHttpVersion() {
+		return httpVersion;
+	}
 
-    public Map<String, String> getHeaders() {
-        return Collections.unmodifiableMap(headers);
-    }
+	public String getMethod() {
+		return method;
+	}
 
-    public String getHttpVersion() {
-        return httpVersion;
-    }
+	public String getPath() {
+		return path;
+	}
 
-    public String getMethod() {
-        return method;
-    }
+	protected Map<String, String> getHeaders() {
+		return headers;
+	}
 
-    public String getPath() {
-        return path;
-    }
+	protected void setBody(String body) {
+		this.body = body;
+	}
 
-    public void setBody(byte[] bytes) {
-        this.body = bytes;
-    }
+	protected void setHeader(String key, String value) {
+		headers.put(key.toLowerCase(), value);
+	}
 
-    public void setHeader(String key, String value) {
-        headers.put(key.toLowerCase(), value);
-    }
-
-    private byte[] body;
-    private final String httpVersion;
-    private final String method;
-    private final String path;
-    private final Map<String, String> headers = new HashMap();
+	private String body;
+	private final Map<String, String> headers = new HashMap<>();
+	private final String httpVersion;
+	private final String method;
+	private final String path;
 }
