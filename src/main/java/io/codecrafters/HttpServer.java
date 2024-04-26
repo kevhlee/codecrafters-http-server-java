@@ -178,7 +178,7 @@ public class HttpServer {
 		bufferedWriter.append("\r\n");
 
 		if (body != null) {
-			bufferedWriter.write(body);
+			bufferedWriter.append(body);
 		}
 
 		bufferedWriter.flush();
