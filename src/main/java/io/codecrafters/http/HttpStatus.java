@@ -4,6 +4,7 @@ package io.codecrafters.http;
  * @author Kevin Lee
  */
 public enum HttpStatus {
+
 	//
 	// 2xx - Success
 	//
@@ -39,4 +40,5 @@ public enum HttpStatus {
 
 	private final int code;
 	private final String text;
+
 }

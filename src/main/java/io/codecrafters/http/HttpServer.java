@@ -22,6 +22,7 @@ import java.util.logging.Logger;
  * @author Kevin Lee
  */
 public class HttpServer {
+
 	public HttpServer(Path baseDirPath, int port) {
 		this.baseDirPath = baseDirPath;
 		this.port = port;
@@ -191,4 +192,5 @@ public class HttpServer {
 	private final Map<String, HttpHandler> handlers = new HashMap<>();
 	private final int port;
 	private int timeout;
+
 }

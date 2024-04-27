@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
  * @author Kevin Lee
  */
 public class Main {
+
 	public static void main(String[] args) throws IOException {
 		Path baseDirPath = Path.of("./");
 		for (int i = 0; i < args.length; i++) {
@@ -100,4 +101,5 @@ public class Main {
 
 		httpServer.start();
 	}
+
 }

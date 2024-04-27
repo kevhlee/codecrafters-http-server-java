@@ -7,6 +7,7 @@ import java.util.Map;
  * @author Kevin Lee
  */
 public class HttpRequest {
+
 	public static final String METHOD_GET = "GET";
 	public static final String METHOD_POST = "POST";
 
@@ -53,4 +54,5 @@ public class HttpRequest {
 	private final String httpVersion;
 	private final String method;
 	private final String path;
+
 }

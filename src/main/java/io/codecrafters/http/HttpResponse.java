@@ -8,6 +8,7 @@ import java.util.TreeMap;
  * @author Kevin Lee
  */
 public class HttpResponse {
+
 	public HttpResponse(HttpStatus httpStatus) {
 		status = httpStatus;
 	}
@@ -43,4 +44,5 @@ public class HttpResponse {
 	private String body;
 	private final Map<String, Object> headers = new TreeMap<>();
 	private HttpStatus status;
+
 }

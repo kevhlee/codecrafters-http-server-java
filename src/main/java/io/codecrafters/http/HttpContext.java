@@ -9,6 +9,7 @@ import java.nio.file.Path;
  * @author Kevin Lee
  */
 public class HttpContext {
+
 	protected HttpContext(Path baseDirPath, HttpRequest httpRequest, HttpResponse httpResponse) {
 		this.baseDirPath = baseDirPath;
 		this.httpRequest = httpRequest;
@@ -66,4 +67,5 @@ public class HttpContext {
 	private final Path baseDirPath;
 	private final HttpRequest httpRequest;
 	private final HttpResponse httpResponse;
+
 }

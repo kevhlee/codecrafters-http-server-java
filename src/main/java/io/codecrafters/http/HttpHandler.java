@@ -5,5 +5,7 @@ package io.codecrafters.http;
  */
 @FunctionalInterface
 public interface HttpHandler {
+
 	void handle(HttpContext httpContext);
+
 }
