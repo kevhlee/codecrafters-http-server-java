@@ -1,4 +1,4 @@
-package io.codecrafters;
+package io.codecrafters.http;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

@@ -1,4 +1,4 @@
-package io.codecrafters;
+package io.codecrafters.http;
 
 /**
  * @author Kevin Lee

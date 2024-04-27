@@ -1,4 +1,4 @@
-package io.codecrafters;
+package io.codecrafters.http;
 
 import java.util.Collections;
 import java.util.Map;

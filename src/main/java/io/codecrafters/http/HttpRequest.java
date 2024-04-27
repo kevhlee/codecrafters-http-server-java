@@ -1,4 +1,4 @@
-package io.codecrafters;
+package io.codecrafters.http;
 
 import java.util.HashMap;
 import java.util.Map;
